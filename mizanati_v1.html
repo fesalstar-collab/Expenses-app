@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق المصاريف والإيرادات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen pb-20">
+
+    <!-- رأس التطبيق -->
+    <header class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold"><i class="fa-solid fa-wallet ml-2"></i> مصاريفي وإيراداتي</h1>
+            <button onclick="openBudgetModal()" class="bg-blue-700 hover:bg-blue-800 text-sm px-3 py-1.5 rounded-lg shadow transition">
+                <i class="fa-solid fa-gear ml-1"></i> الميزانية
+            </button>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 max-w-md">
+        
+        <!-- ملخص الرصيد والميزانية -->
+        <section class="grid grid-cols-2 gap-4 mb-4">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <span class="text-xs text-gray-500 block">إجمالي الرصيد</span>
+                <h2 id="totalBalance" class="text-xl font-bold text-blue-600 mt-1">0 د.ع</h2>
+            </div>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <span class="text-xs text-gray-500 block">ميزانية الشهر</span>
+                <h2 id="budgetDisplay" class="text-xl font-bold text-purple-600 mt-1">0 د.ع</h2>
+            </div>
+        </section>
+
+        <!-- شريط تقدم الميزانية -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
+            <div class="flex justify-between text-xs text-gray-600 mb-1">
+                <span>استهلاك الميزانية</span>
+                <span id="budgetPercentage">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden">
+                <div id="budgetProgressBar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </section>
+
+        <!-- أزرار العمليات -->
+        <section class="grid grid-cols-2 gap-3 mb-6">
+            <button onclick="openModal('income')" class="bg-emerald-500 hover:bg-emerald-600 text-white py-3 px-4 rounded-xl font-bold shadow-md transition flex items-center justify-center">
+                <i class="fa-solid fa-plus-circle ml-2"></i> إضافة إيراد
+            </button>
+            <button onclick="openModal('expense')" class="bg-rose-500 hover:bg-rose-600 text-white py-3 px-4 rounded-xl font-bold shadow-md transition flex items-center justify-center">
+                <i class="fa-solid fa-minus-circle ml-2"></i> إضافة مصروف
+            </button>
+        </section>
+
+        <!-- تبويبات الفلاتر الزمنية -->
+        <section class="flex bg-gray-200 p-1 rounded-xl mb-4 text-sm font-semibold">
+            <button onclick="setFilter('all')" id="filter-all" class="flex-1 py-2 rounded-lg bg-white text-blue-600 shadow-sm transition">الكل</button>
+            <button onclick="setFilter('day')" id="filter-day" class="flex-1 py-2 rounded-lg text-gray-600 transition">يومي</button>
+            <button onclick="setFilter('week')" id="filter-week" class="flex-1 py-2 rounded-lg text-gray-600 transition">أسبوعي</button>
+            <button onclick="setFilter('month')" id="filter-month" class="flex-1 py-2 rounded-lg text-gray-600 transition">شهري</button>
+        </section>
+
+        <!-- قائمة العمليات -->
+        <section>
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold text-gray-700">العمليات الأخيرة</h3>
+                <span id="transactionCount" class="text-xs text-gray-400">0 عملية</span>
+            </div>
+            <div id="transactionsList" class="space-y-3">
+                <!-- ستتم تعبئتها تلقائياً عبر الجافاسكريبت -->
+            </div>
+        </section>
+    </main>
+
+    <!-- أزرار عائمة (حاسبة وإضافة سريعة) -->
+    <div class="fixed bottom-5 left-5 right-5 max-w-md mx-auto flex justify-between px-4 pointer-events-none z-40">
+        <button onclick="openCalculator()" class="pointer-events-auto bg-amber-500 hover:bg-amber-600 text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-lg transition">
+            <i class="fa-solid fa-calculator"></i>
+        </button>
+        <button onclick="openModal('expense')" class="pointer-events-auto bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-2xl transition">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+    </div>
+
+    <!-- نافذة الإضافة والتعديل -->
+    <div id="transactionModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl animate-fade-in">
+            <h3 id="modalTitle" class="text-lg font-bold text-gray-800 mb-4">إضافة عملية جديدة</h3>
+            <input type="hidden" id="editIndex" value="-1">
+            <form id="transactionForm" onsubmit="saveTransaction(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">نوع العملية</label>
+                    <select id="transType" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-sm focus:outline-none focus:border-blue-500">
+                        <option value="expense">مصروف</option>
+                        <option value="income">إيراد</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">اسم المصروف أو الإيراد / الفئة</label>
+                    <input type="text" id="transName" required placeholder="مثال: طعام، فاتورة، راتب..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-sm focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">المبلغ (د.ع)</label>
+                    <input type="number" id="transAmount" required placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-sm focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex space-x-2 space-x-reverse pt-2">
+                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-bold shadow transition">حفظ</button>
+                    <button type="button" onclick="closeModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-bold transition">إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة الميزانية -->
+    <div id="budgetModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">تحديد الميزانية الشهرية</h3>
+            <form onsubmit="saveBudget(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">سقف الميزانية (د.ع)</label>
+                    <input type="number" id="budgetInput" required placeholder="مثال: 500000" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-sm focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex space-x-2 space-x-reverse pt-2">
+                    <button type="submit" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-bold shadow transition">حفظ الميزانية</button>
+                    <button type="button" onclick="closeBudgetModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-bold transition">إغلاق</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة الحاسبة -->
+    <div id="calculatorModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-xs rounded-2xl p-5 shadow-2xl">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold text-gray-800">حاسبة سريعة</h3>
+                <button onclick="closeCalculator()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <input type="text" id="calcScreen" readonly class="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-left text-xl font-bold mb-3 tracking-wider text-gray-800" value="0">
+            <div class="grid grid-cols-4 gap-2 text-sm font-bold">
+                <button onclick="calcAppend('7')" class="bg-gray-100 hover:bg-gray-200 py-3 rounded-xl">7</button>
+                <button onclick="calcAppend('8')" class="bg-gray-100 hover:bg-gray-200 py-3 rounded-xl">8</button>
+                <button onclick="calcAppend('9')" class="bg-gray-100 hover:bg-gray-200 py-3 rounded-xl">9</button>
+                <button onclick="calcAppend('/')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 py-3 rounded-xl">÷</button>
+                <button onclick="calcAppend('4')" class="bg-gray-100 hover:bg-gray-200 py-3 rounded-xl">4</button>
+                <button onclick="calcAppend('5')" class="bg-gray-100 hover:bg-gray-200 py-3 rounded-xl">5</button>
+                <button onclick="calcAppend('6')" class="bg-gray-100 hover:bg-gray-200 py-3 rounded-xl">6</button>
+                <button onclick="calcAppend('*')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 py-3 rounded-xl">×</button>
+                <button onclick="calcAppend('1')" class="bg-gray-100 hover:bg-gray-200 py-3 rounded-xl">1</button>
+                <button onclick="calcAppend('2')" class="bg-gray-100 hover:bg-gray-200 py-3 rounded-xl">2</button>
+                <button onclick="calcAppend('3')" class="bg-gray-100 hover:bg-gray-200 py-3 rounded-xl">3</button>
+                <button onclick="calcAppend('-')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 py-3 rounded-xl">-</button>
+                <button onclick="calcClear()" class="bg-rose-50 text-rose-600 hover:bg-rose-100 py-3 rounded-xl">C</button>
+                <button onclick="calcAppend('0')" class="bg-gray-100 hover:bg-gray-200 py-3 rounded-xl">0</button>
+                <button onclick="calcCalculate()" class="bg-emerald-500 text-white hover:bg-emerald-600 py-3 rounded-xl">=</button>
+                <button onclick="calcAppend('+')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 py-3 rounded-xl">+</button>
+            </div>
+            <button onclick="useCalcResult()" class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl text-sm font-bold">استخدام الناتج للمبلغ</button>
+        </div>
+    </div>
+
+    <script>
+        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        let monthlyBudget = parseFloat(localStorage.getItem('monthlyBudget')) || 0;
+        let currentFilter = 'all';
+
+        function updateUI() {
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+            localStorage.setItem('monthlyBudget', monthlyBudget);
+
+            let totalIncome = 0;
+            let totalExpense = 0;
+
+            const filtered = transactions.filter(t => {
+                const tDate = new Date(t.date);
+                const now = new Date();
+                if (currentFilter === 'day') {
+                    return tDate.toDateString() === now.toDateString();
+                } else if (currentFilter === 'week') {
+                    const diffTime = Math.abs(now - tDate);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    return diffDays <= 7;
+                } else if (currentFilter === 'month') {
+                    return tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
+                }
+                return true;
+            });
+
+            transactions.forEach(t => {
+                if (t.type === 'income') totalIncome += Number(t.amount);
+                else totalExpense += Number(t.amount);
+            });
+
+            let balance = totalIncome - totalExpense;
+            document.getElementById('totalBalance').innerText = balance.toLocaleString() + ' د.ع';
+            document.getElementById('budgetDisplay').innerText = monthlyBudget.toLocaleString() + ' د.ع';
+
+            // حساب نسبة الميزانية للمصاريف الشهرية
+            let monthlyExpense = transactions.filter(t => {
+                const tDate = new Date(t.date);
+                const now = new Date();
+                return t.type === 'expense' && tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
+            }).reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+            let percentage = monthlyBudget > 0 ? Math.min(Math.round((monthlyExpense / monthlyBudget) * 100), 100) : 0;
+            document.getElementById('budgetPercentage').innerText = percentage + '%';
+            document.getElementById('budgetProgressBar').style.width = percentage + '%';
+
+            const listEl = document.getElementById('transactionsList');
+            listEl.innerHTML = '';
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `<div class="text-center py-8 text-gray-400 text-sm">لا توجد عمليات مسجلة</div>`;
+            } else {
+                filtered.slice().reverse().forEach((t, index) => {
+                    let originalIndex = transactions.indexOf(t);
+                    const isInc = t.type === 'income';
+                    listEl.innerHTML += `
+                        <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+                            <div class="flex items-center space-x-3 space-x-reverse">
+                                <div class="w-10 h-10 rounded-xl flex items-center justify-center ${isInc ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}">
+                                    <i class="fa-solid ${isInc ? 'fa-arrow-down-left' : 'fa-arrow-up-right'}"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-sm text-gray-800">${t.name}</h4>
+                                    <span class="text-[10px] text-gray-400">${t.date}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 space-x-reverse">
+                                <span class="font-bold text-sm ${isInc ? 'text-emerald-600' : 'text-rose-600'}">
+                                    ${isInc ? '+' : '-'}${Number(t.amount).toLocaleString()} د.ع
+                                </span>
+                                <button onclick="editTransaction(${originalIndex})" class="text-gray-400 hover:text-blue-600 p-1 text-xs"><i class="fa-solid fa-pen"></i></button>
+                                <button onclick="deleteTransaction(${originalIndex})" class="text-gray-400 hover:text-rose-600 p-1 text-xs"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            document.getElementById('transactionCount').innerText = filtered.length + ' عملية';
+        }
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            ['all', 'day', 'week', 'month'].forEach(f => {
+                const btn = document.getElementById(`filter-${f}`);
+                if (f === filter) {
+                    btn.className = "flex-1 py-2 rounded-lg bg-white text-blue-600 shadow-sm transition";
+                } else {
+                    btn.className = "flex-1 py-2 rounded-lg text-gray-600 transition";
+                }
+            });
+            updateUI();
+        }
+
+        function openModal(type) {
+            document.getElementById('modalTitle').innerText = "إضافة عملية جديدة";
+            document.getElementById('transType').value = type;
+            document.getElementById('transName').value = '';
+            document.getElementById('transAmount').value = '';
+            document.getElementById('editIndex').value = '-1';
+            document.getElementById('transactionModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('transactionModal').classList.add('hidden');
+        }
+
+        function saveTransaction(e) {
+            e.preventDefault();
+            const type = document.getElementById('transType').value;
+            const name = document.getElementById('transName').value;
+            const amount = document.getElementById('transAmount').value;
+            const editIndex = document.getElementById('editIndex').value;
+            const now = new Date().toLocaleString('ar-IQ');
+
+            if (editIndex === '-1') {
+                transactions.push({ type, name, amount, date: now });
+            } else {
+                transactions[editIndex] = { ...transactions[editIndex], type, name, amount };
+            }
+
+            closeModal();
+            updateUI();
+        }
+
+        function editTransaction(index) {
+            const t = transactions[index];
+            document.getElementById('modalTitle').innerText = "تعديل العملية";
+            document.getElementById('transType').value = t.type;
+            document.getElementById('transName').value = t.name;
+            document.getElementById('transAmount').value = t.amount;
+            document.getElementById('editIndex').value = index;
+            document.getElementById('transactionModal').classList.remove('hidden');
+        }
+
+        function deleteTransaction(index) {
+            if (confirm('هل أنت متأكد من حذف هذه العملية؟')) {
+                transactions.splice(index, 1);
+                updateUI();
+            }
+        }
+
+        function openBudgetModal() {
+            document.getElementById('budgetInput').value = monthlyBudget > 0 ? monthlyBudget : '';
+            document.getElementById('budgetModal').classList.remove('hidden');
+        }
+
+        function closeBudgetModal() {
+            document.getElementById('budgetModal').classList.add('hidden');
+        }
+
+        function saveBudget(e) {
+            e.preventDefault();
+            monthlyBudget = parseFloat(document.getElementById('budgetInput').value) || 0;
+            closeBudgetModal();
+            updateUI();
+        }
+
+        // الحاسبة
+        let calcValue = "0";
+        function openCalculator() { document.getElementById('calculatorModal').classList.remove('hidden'); }
+        function closeCalculator() { document.getElementById('calculatorModal').classList.add('hidden'); }
+        function calcAppend(val) {
+            if (calcValue === "0") calcValue = val;
+            else calcValue += val;
+            document.getElementById('calcScreen').value = calcValue;
+        }
+        function calcClear() {
+            calcValue = "0";
+            document.getElementById('calcScreen').value = calcValue;
+        }
+        function calcCalculate() {
+            try {
+                calcValue = eval(calcValue).toString();
+                document.getElementById('calcScreen').value = calcValue;
+            } catch (e) {
+                document.getElementById('calcScreen').value = "خطأ";
+                calcValue = "0";
+            }
+        }
+        function useCalcResult() {
+            document.getElementById('transAmount').value = calcValue;
+            closeCalculator();
+        }
+
+        updateUI();
+    </script>
+</body>
+</html>
